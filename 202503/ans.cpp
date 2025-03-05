@@ -26,7 +26,9 @@ xxxx/x/x/x
 3 12 112 56 48 3087 9 405 4 1
 1 4 27 9 64 27 16 56 4 5
 2025 225 24 12 64 5 16 405 4 3087
-603185109176
+2251 480 166 3356
+601931086080
+
 
  */
 
@@ -56,6 +58,7 @@ vector<Hint> hints = {
 	Hint{{11, 5}, 64},
 	Hint{{0, 5}, 48},
 	Hint{{4, 0}, 27},
+	// Hint{{0, 11}, 1},
 };
 vector<vector<int>> hints_map(N+1, vector<int>(N+1, 0));
 void clearMods(vector<vector<Grid>>& grids, const vector<pair<int,int>>& mod_pos){
@@ -223,6 +226,8 @@ void dfs(vector<vector<Grid>>& grids, int now) {
 		printGrids(grids);
 		long long int ans = 1;
 		long long int sum[4] = {0,0,0,0};
+		hints.push_back(Hint{{0, 11}, 1});
+		hints_map[0][11] = 1;
 		for(int i=1;i<N;i++){
 			if(hints_map[i][0] == 0)
 				fillVal({i, 0}, grids);
@@ -257,6 +262,7 @@ void dfs(vector<vector<Grid>>& grids, int now) {
 			printf("%d%c", hints_map[i][N], i==N-1?'\n':' ');
 		for(int i=1;i<N;i++)
 			printf("%d%c", hints_map[N][i], i==N-1?'\n':' ');
+		printf("%d %d %d %d\n", sum[0], sum[1], sum[2], sum[3]);
 		ans = sum[0] * sum[1] * sum[2] * sum[3];
 		printf("%lld\n", ans);
 		found = true;
