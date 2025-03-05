@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Square with Diagonals and Node</title>
+</head>
+<body>
+  <canvas id="canvas" width="400" height="400" style="border:1px solid #000;"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Translate the origin to the center of the canvas
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+
+    // Set square properties
+    const side = 2 * 100; // Scale by 100 for visibility on canvas
+
+    // Draw the square centered at (0, 0)
+    ctx.beginPath();
+    ctx.rect(-side / 2, -side / 2, side, side);
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw main diagonal (top-left to bottom-right)
+    ctx.beginPath();
+    ctx.moveTo(-side / 2, side / 2);
+    ctx.lineTo(side / 2, -side / 2);
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw anti-diagonal (top-right to bottom-left)
+    ctx.beginPath();
+    ctx.moveTo(side / 2, side / 2);
+    ctx.lineTo(-side / 2, -side / 2);
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Function to generate a random point within the bottom triangle
+    function randomPointInBottomTriangle() {
+      let x, y;
+      do {
+        // Random x between -side/2 and side/2
+        x = (Math.random() - 0.5) * side;
+        // Random y between 0 and side/2 (below center)
+        y = Math.random() * side / 2;
+
+        // Check if the point is below both diagonals
+      } while (y < Math.abs(x));
+
+      return { x ,  y };
+    }
+
+    // Generate and draw the blue node in the bottom triangle
+    const { x, y } = randomPointInBottomTriangle();
+    
+    
+    
+    function binarySearch(lb, rb, x, y, slope, left) {
+      let retx, rety;
+      while(Math.abs(lb - rb) >  1e-6) {
+        const mx = (lb + rb) / 2;
+        const centerx = (mx + x)  / 2;
+        const centery = y + slope * (centerx - x);
+        const b = centery + centerx / slope;
+        const xx =  (-side/2 + b) * slope;
+        const ok = (xx >= -side/2 && xx <= side/2);
+        if (left) {
+          if (ok) rb = mx;
+          else lb = mx;
+        } else {
+          if(ok) lb = mx;
+          else rb = mx;
+        }
+      }
+      retx = lb;
+      rety = y + slope * (retx - x);
+      console.log(x, y, retx, rety);
+      return { retx, rety  };
+    }
+    
+    function binarySearch2(lb, rb, x, y, slope, up) {
+      let retx, rety;
+      while(Math.abs(lb - rb) >  1e-6) {
+        const my = (lb + rb) / 2;
+        const centery = (my + y)  / 2;
+        const centerx = (centery - y) / slope + x;
+        const b = centery + centerx / slope;
+        const xx =  (-side/2 + b) * slope;
+        const ok = (xx >= -side/2 && xx <= side/2);
+        if (!up) {
+          if (ok) rb = my;
+          else lb = my;
+        } else {
+          if(ok) lb = my;
+          else rb = my;
+        }
+      }
+      rety = lb;
+      retx = (rety - y ) / slope + x;
+      console.log(x, y, retx, rety);
+      return { retx, rety  };
+    }
+    
+    
+    for(var i = 0; i <= 50; i++) {
+	    // Draw a random line passing through the blue node
+	    const randomSlope = Math.tan((i / 50 - 0.5) * Math.PI); // Random slope
+
+	    // Calculate two points on the canvas to extend the line
+	    const lineX1 = -side; // Start far left
+	    const lineY1 = y + randomSlope * (lineX1 - x); // y = y0 + m(x - x0)
+
+	    const lineX2 = side;  // End far right
+	    const lineY2 = y + randomSlope * (lineX2 - x); // y = y0 + m(x - x0)
+
+	    // Draw the random line
+	    ctx.beginPath();
+	    ctx.moveTo(lineX1, lineY1);
+	    ctx.lineTo(lineX2, lineY2);
+	    ctx.strokeStyle = 'purple';
+	    ctx.lineWidth = 1;
+	    ctx.stroke();
+	    
+	    const {retx: lx, rety: ly} = binarySearch(-side/2, x, x, y, randomSlope, true);
+	    const {retx: rx, rety: ry} = binarySearch(x, side/2, x, y, randomSlope, false);
+	    
+	    
+	    ctx.beginPath();
+	    ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+	    ctx.arc(rx, ry, 3, 0, Math.PI * 2);
+	    ctx.fillStyle = 'red';
+	    ctx.fill();
+	    
+	    const {retx: lx2, rety: ly2} = binarySearch2(-side/2, y, x, y, randomSlope, true);
+	    const {retx: rx2, rety: ry2} = binarySearch2(y, side/2, x, y, randomSlope, false);
+	    
+	    
+	    ctx.beginPath();
+	    ctx.arc(lx2, ly2, 3, 0, Math.PI * 2);
+	    ctx.arc(rx2, ry2, 3, 0, Math.PI * 2);
+	    ctx.fillStyle = 'green';
+	    ctx.fill();
+    }
+    
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'blue';
+    ctx.fill();
+    
+    
+  </script>
+</body>
+</html>
+
