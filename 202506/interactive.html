@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>45x45 Board Drag Tool</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: start;
+    }
+    #container {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    #palette, #board {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 10px;
+    }
+    #palette {
+      flex-direction: column;
+      gap: 10px;
+    }
+    .square {
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .cell {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+    }
+    .highlight {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+    #board {
+      width: 900px;
+      height: 900px;
+      display: grid;
+      grid-template-columns: repeat(45, 20px);
+      position: relative;
+    }
+    .dropped-square {
+      position: absolute;
+      display: grid;
+      pointer-events: auto;
+      cursor: grab;
+    }
+    #controls {
+      margin: 10px;
+    }
+    #alphabetRow, #alphabetCol {
+      display: flex;
+      margin: 10px;
+      text-align: center;
+    }
+    #alphabetCol {
+      flex-direction: column;
+    }
+    .alphabet-cell {
+      width: 20px;
+      height: 20px;
+      box-sizing: border-box;
+    }
+    .alphabet-cell input {
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      border: 1px solid #ccc;
+    }
+    #align {
+      text-align: center;
+      font-size: 25px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="saveBtn">Save</button>
+    <input type="file" id="loadInput" />
+    <input id="rowStartChar" placeholder="Row start char" maxlength="1">
+    <input id="colStartChar" placeholder="Col start char" maxlength="1">
+    <button id="setAlphabets">Set Alphabets</button>
+    <button id="savePngBtn">Save as PNG</button>
+  </div>
+  <div id="container">
+    <div id="palette"></div>
+    <div>
+      <div id="align">😺</div>
+      <div id="alphabetCol"></div>
+    </div>
+    <div id="boardContainer">
+      <div id="alphabetRow"></div>
+      <div id="boardWithColLabels">
+        <div id="board"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <script>
+    const colors = {
+      9: 'lightblue',
+      8: 'brown',
+      7: 'yellow',
+      6: 'blue',
+      5: 'pink',
+      4: 'darkblue',
+      3: 'orange',
+      2: 'green'
+    };
+
+    const palette = document.getElementById('palette');
+    const board = document.getElementById('board');
+    const saveBtn = document.getElementById('saveBtn');
+    const loadInput = document.getElementById('loadInput');
+    const alphabetRow = document.getElementById('alphabetRow');
+    const alphabetCol = document.getElementById('alphabetCol');
+    const setAlphabetsBtn = document.getElementById('setAlphabets');
+   
+    function generateAlphabetSequence(startChar) {
+      const startCode = startChar.toLowerCase().charCodeAt(0);
+      let result = [];
+      for (let i = 0; i < 45; i++) {
+        result.push(String.fromCharCode(((startCode - 97 + i) % 26) + 97));
+      }
+      return result;
+    }
+
+    setAlphabetsBtn.addEventListener('click', () => {
+      const rowStart = document.getElementById('rowStartChar').value;
+      const colStart = document.getElementById('colStartChar').value;
+      if (!rowStart || !colStart) return;
+
+      alphabetRow.innerHTML = '';
+      alphabetCol.innerHTML = '';
+      const rowSeq = generateAlphabetSequence(rowStart);
+      const colSeq = generateAlphabetSequence(colStart);
+
+      rowSeq.forEach(ch => {
+        const cell = document.createElement('div');
+        cell.classList.add('alphabet-cell');
+        cell.textContent = ch;
+        alphabetRow.appendChild(cell);
+      });
+
+      colSeq.forEach(ch => {
+        const cell = document.createElement('div');
+        cell.classList.add('alphabet-cell');
+        cell.textContent = ch;
+        alphabetCol.appendChild(cell);
+      });
+    });
+
+    const squareCounts = {};
+    let currentHoverLen = 0;
+
+    for (let len = 9; len >= 2; len--) {
+      squareCounts[len] = 0;
+      const container = document.createElement('div');
+      container.classList.add('square');
+      container.style.gridTemplateColumns = `repeat(${len}, 20px)`;
+      container.style.width = `${len * 20}px`;
+      container.style.height = `${len * 20}px`;
+      container.style.backgroundColor = colors[len];
+      container.setAttribute('draggable', true);
+      container.dataset.length = len;
+      container.dataset.fromPalette = "true";
+
+      const countLabel = document.createElement('span');
+      countLabel.id = `count-${len}`;
+      countLabel.textContent = `0`;
+      container.appendChild(countLabel);
+
+      container.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({ len, fromPalette: true }));
+        currentHoverLen = len;
+      });
+
+      palette.appendChild(container);
+    }
+
+    function updateCountLabel(len) {
+      const label = document.getElementById(`count-${len}`);
+      if (label) {
+        label.textContent = `${squareCounts[len]}`;
+      }
+    }
+
+    function highlightCells(startX, startY, len, highlight = true) {
+      for (let dy = 0; dy < len; dy++) {
+        for (let dx = 0; dx < len; dx++) {
+          const index = (startY + dy) * 45 + (startX + dx);
+          const cell = board.children[index];
+          if (cell) {
+            if (highlight) {
+              cell.classList.add('highlight');
+            } else {
+              cell.classList.remove('highlight');
+            }
+          }
+        }
+      }
+    }
+
+    function createBoardCell(x, y) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+
+      cell.addEventListener('dragover', e => {
+        e.preventDefault();
+        highlightCells(x, y, currentHoverLen, true);
+      });
+
+      cell.addEventListener('dragleave', e => {
+        highlightCells(x, y, currentHoverLen, false);
+      });
+
+      cell.addEventListener('drop', e => {
+        e.preventDefault();
+        highlightCells(x, y, currentHoverLen, false);
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        const len = parseInt(data.len);
+        const startX = parseInt(cell.dataset.x);
+        const startY = parseInt(cell.dataset.y);
+
+        if (startX + len > 45 || startY + len > 45) return;
+
+        addDroppedSquare(startX, startY, len);
+      });
+
+      return cell;
+    }
+
+    function addDroppedSquare(x, y, len) {
+      const square = document.createElement('div');
+      square.classList.add('dropped-square');
+      square.style.width = `${len * 20}px`;
+      square.style.height = `${len * 20}px`;
+      square.style.left = `${x * 20}px`;
+      square.style.top = `${y * 20}px`;
+      square.style.gridTemplateColumns = `repeat(${len}, 20px)`;
+      square.style.backgroundColor = colors[len];
+      square.setAttribute('draggable', true);
+      square.dataset.length = len;
+      square.dataset.x = x;
+      square.dataset.y = y;
+
+      square.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({ len, fromPalette: false }));
+        board.removeChild(square);
+        squareCounts[len] = Math.max(0, squareCounts[len] - 1);
+        updateCountLabel(len);
+        currentHoverLen = len;
+      });
+
+      board.appendChild(square);
+      squareCounts[len]++;
+      updateCountLabel(len);
+    }
+
+    // Populate board
+    for (let y = 0; y < 45; y++) {
+      for (let x = 0; x < 45; x++) {
+        board.appendChild(createBoardCell(x, y));
+      }
+    }
+
+    // Save state to file
+    saveBtn.addEventListener('click', () => {
+      const squares = Array.from(document.querySelectorAll('.dropped-square')).map(sq => ({
+        x: parseInt(sq.dataset.x),
+        y: parseInt(sq.dataset.y),
+        len: parseInt(sq.dataset.length)
+      }));
+      const blob = new Blob([JSON.stringify(squares)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'board-state.json';
+      a.click();
+    });
+
+    // Load from file
+    loadInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = event => {
+        const squares = JSON.parse(event.target.result);
+        document.querySelectorAll('.dropped-square').forEach(el => el.remove());
+        Object.keys(squareCounts).forEach(k => squareCounts[k] = 0);
+        squares.forEach(({ x, y, len }) => addDroppedSquare(x, y, len));
+      };
+      reader.readAsText(file);
+    });
+   
+    const savePngBtn = document.getElementById('savePngBtn');
+
+    savePngBtn.addEventListener('click', () => {
+      html2canvas(board).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'board-state.png';
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    });
+  </script>
+</body>
+</html>

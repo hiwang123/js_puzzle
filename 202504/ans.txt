@@ -1,0 +1,8 @@
+A= exist a path sum <=0
+B= exist a path sum <=1
+
+A=p(A+A-A^2),
+B=p(B+B-B^2) + (1-p)(A+A-A^2),
+B=1/2,
+
+p≈0.530603575430005 and A≈0.115353822880684
